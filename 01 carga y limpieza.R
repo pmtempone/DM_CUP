@@ -85,3 +85,6 @@ prop.table(table(train$orden_dia_producto,train$order),1)
 
 #Campaign index. NA se parece mucho a B. 
 prop.table(table(train$campaignIndex,train$order),1)
+
+
+
