@@ -48,3 +48,4 @@ xyplot(price ~ competitorPrice,
        auto.key = list(columns = 2)) 
 
 remove(plotSubset)
+remove(transformed)
