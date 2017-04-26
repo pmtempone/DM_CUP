@@ -16,7 +16,7 @@ train_t$competitorPrice[is.na(train_t$competitorPrice)] <- 0
 
 set.seed(307)
 
-variables <- c('day', 'pid', 'adFlag', 'availability', 'competitorPrice', 'click', 'basket', 'order', 'price','revenue')
+variables <- c('day', 'pid', 'adFlag', 'availability', 'competitorPrice', 'price','revenue')
 head(train_t[,variables])
 
 sum(data_profile$variable %in% variables)
