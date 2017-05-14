@@ -12,6 +12,7 @@ library(funModeling)
 library(ranger)
 library(RPostgreSQL)
 library(DBI)
+library(xgboost)
 
 # loads the PostgreSQL driver
 drv <- dbDriver("PostgreSQL")
@@ -125,4 +126,77 @@ remove(list = c("g.training","g","fit_ranger","pred.rpart_click","pred.rpart_cli
 #65% CURVA roc, igual que la anterior prueba
 
 
-#xgboost
+#----xgboost-----
+
+library(xgboost)
+
+drat:::addRepo("dmlc")
+library(caret)
+library(readr)
+library(dplyr)
+library(tidyr)
+
+loglossobj <- function(preds, dtrain) {
+  # dtrain is the internal format of the training data
+  # We extract the labels from the training data
+  labels <- getinfo(dtrain, "label")
+  # We compute the 1st and 2nd gradient, as grad and hess
+  preds <- 1/(1 + exp(-preds))
+  grad <- preds - labels
+  hess <- preds * (1 - preds)
+  # Return the result as a list
+  return(list(grad = grad, hess = hess))
+}
+
+# xgboost fitting with arbitrary parameters
+xgb_params_1 = list(
+  objective = "binary:logistic",                                               # binary classification
+  eta = 0.01,                                                                  # learning rate
+  max.depth = 3,                                                               # max tree depth
+  eval_metric = "auc"                                                          # evaluation/loss metric
+)
+
+
+clase <- as.numeric(ifelse(train_t$click=="1",1,0))
+data_xg <- data.matrix(train_t[,variables])
+
+
+variables <- c( 'competitorPrice', 'price',
+                'rrp','dia_semana','compar_compet','compar_ref','price_changed',
+                'orden_dia_producto','avg_comp_price','avg_price','lag_avg_comp_price','lag_avg_price','grupo_prod',
+                'cajas','kmeans_g','perc_adflag','perc_generic','perc_generic','perc_unit','perc_sales','perc_campaign','up_price',
+                'multiple','flag_avail','flag_generic','avail_generic')
+
+# fit the model with the arbitrary parameters specified above
+xgb_1 = xgboost(data = data_xg,
+                label = clase,
+                params = xgb_params_1,
+                nrounds = 100,                                                 # max number of trees to build
+                verbose = TRUE,                                         
+                print.every.n = 1,
+                early.stop.round = 10                                         # stop if no improvement within 10 trees
+)
+
+xgb_cv_1 = xgb.cv(params = xgb_params_1,
+                  data = data_xg,
+                  label = clase,
+                  nrounds = 100, 
+                  nfold = 5,                                                   # number of folds in K-fold
+                  prediction = TRUE,                                           # return the prediction using the final model 
+                  showsd = TRUE,                                               # standard deviation of loss across folds
+                  stratified = TRUE,                                           # sample is unbalanced; use stratified sampling
+                  verbose = TRUE,
+                  print.every.n = 1, 
+                  early.stop.round = 10,missing = NA
+)
+
+
+#plot the AUC for the training and testing samples
+library(tidyr)
+
+with(xgb_cv_1$evaluation_log,plot(iter,train_auc_mean,type = 'l'))
+with(xgb_cv_1$evaluation_log,lines(iter,test_auc_mean,type = 'l',col='red'))
+
+max(xgb_cv_1$evaluation_log$test_auc_mean)
+
+#auc max 67%
